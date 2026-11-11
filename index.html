@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Frota Hauke</title>
+<meta name="description" content="Controle de frota da Hauke Engenharia: viagens, abastecimentos e vistoria semanal.">
+<meta name="theme-color" content="#1d4fa3">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Frota Hauke">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: app de uma coluna para celular — cabeçalho com a placa do carro, conteúdo em blocos, abas fixas embaixo */
+:root{
+  --bg:#edf1f6; --surface:#ffffff; --surface-2:#f5f7fa; --ink:#122033; --muted:#5a6a7e; --line:#d5dde7;
+  --accent:#1d4fa3; --accent-ink:#ffffff; --accent-soft:#e2ebf9;
+  --ok:#1b7a45; --ok-soft:#dff2e6; --warn:#91600f; --warn-soft:#fbeed6; --bad:#b3302a; --bad-soft:#fbe3e0;
+  --plate-bg:#ffffff; --plate-ink:#121417; --plate-band:#1b3f8e; --plate-band-ink:#ffffff; --plate-edge:#9aa6b4;
+  --shadow:0 1px 2px rgba(18,32,51,.06),0 4px 14px rgba(18,32,51,.06);
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:14px; --nav-h:64px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0d131a; --surface:#161f2a; --surface-2:#1c2733; --ink:#e7edf4; --muted:#98a6b6; --line:#2a3746;
+  --accent:#6f9df0; --accent-ink:#0a1320; --accent-soft:#1c2c47;
+  --ok:#4cc483; --ok-soft:#173326; --warn:#e3ab4a; --warn-soft:#3a2c12; --bad:#f06b5d; --bad-soft:#3d1d1a;
+  --plate-edge:#55626f; --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0d131a; --surface:#161f2a; --surface-2:#1c2733; --ink:#e7edf4; --muted:#98a6b6; --line:#2a3746;
+  --accent:#6f9df0; --accent-ink:#0a1320; --accent-soft:#1c2c47;
+  --ok:#4cc483; --ok-soft:#173326; --warn:#e3ab4a; --warn-soft:#3a2c12; --bad:#f06b5d; --bad-soft:#3d1d1a;
+  --plate-edge:#55626f; --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.4;
+  -webkit-tap-highlight-color:transparent;padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 24px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* cabeçalho */
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.hd{display:flex;align-items:center;gap:12px;padding-block:10px}
+.brand{font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
+.brand small{display:block;font-family:var(--f-body);font-weight:500;font-size:12px;letter-spacing:.04em;color:var(--muted);text-transform:none;margin-top:3px}
+.hd .sp{flex:1}
+.who{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;cursor:pointer;max-width:42vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.demo{background:var(--warn-soft);color:var(--warn);font-size:13px;font-weight:600;padding-block:6px;text-align:center}
+
+/* placa Mercosul */
+.platepick{position:relative;display:inline-flex}
+.platepick select{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer;font-size:16px}
+.plate{display:inline-flex;flex-direction:column;background:var(--plate-bg);color:var(--plate-ink);border:2px solid var(--plate-edge);border-radius:6px;overflow:hidden;min-width:108px;text-align:center}
+.plate-band{background:var(--plate-band);color:var(--plate-band-ink);font-size:8px;font-weight:700;letter-spacing:.24em;padding:1px 0}
+.plate-num{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.08em;line-height:1.05;padding:1px 8px 2px}
+.plate.sm{min-width:86px}.plate.sm .plate-num{font-size:17px}
+.carro{font-size:13px;color:var(--muted);margin-top:2px}
+
+/* blocos */
+main{padding-block:16px;display:grid;gap:14px}
+h1{font-family:var(--f-display);font-weight:700;font-size:28px;line-height:1.05;margin:4px 0 0;text-wrap:balance}
+h2{font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:14px;box-shadow:var(--shadow)}
+.lead{color:var(--muted);margin:0;font-size:15px}
+.stamp{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);background:var(--surface-2);border-radius:10px;padding:8px 10px}
+.stamp b{color:var(--ink);font-weight:600}
+
+.f{display:grid;gap:6px}
+.f label,.lbl{font-size:14px;font-weight:600}
+.f .hint{font-size:13px;color:var(--muted)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+input[type=text],input[type=tel],textarea,.inp{width:100%;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:12px;font-size:17px;min-height:50px}
+textarea{min-height:76px;resize:vertical;font-size:16px}
+input:focus,textarea:focus{border-color:var(--accent);outline:none}
+.big{font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:.03em;font-variant-numeric:tabular-nums}
+.suffix{position:relative}.suffix span{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:600;pointer-events:none}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:10px 14px;font-weight:600;font-size:15px;cursor:pointer;min-height:44px}
+.chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:54px;border-radius:12px;border:0;background:var(--accent);color:var(--accent-ink);font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent);min-height:46px;font-size:17px}
+.btn:active{transform:translateY(1px)}
+
+.note{border-radius:12px;padding:12px 14px;font-size:15px;display:grid;gap:8px}
+.note.warn{background:var(--warn-soft);color:var(--warn)}
+.note.bad{background:var(--bad-soft);color:var(--bad)}
+.note.ok{background:var(--ok-soft);color:var(--ok)}
+.note.info{background:var(--accent-soft);color:var(--ink)}
+.note b{font-weight:700}
+.note ul{margin:0;padding-left:18px}
+.note .btn{min-height:44px;font-size:16px}
+
+/* viagem em uso */
+.live{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:15px}
+.live dt{color:var(--muted)}.live dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.pulse{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ok);margin-right:6px;vertical-align:1px}
+
+/* checklist */
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.legend span b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:5px;margin-right:4px;font-size:12px;color:var(--accent-ink)}
+.grp-hd{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.linkbtn{background:none;border:0;color:var(--accent);font-weight:600;font-size:14px;padding:6px 0;cursor:pointer}
+.items{display:grid;border-top:1px solid var(--line)}
+.it{display:grid;gap:10px;padding-block:12px;border-bottom:1px solid var(--line)}
+.it:last-child{border-bottom:0}
+.it-top{display:flex;align-items:center;gap:10px}
+.it-name{flex:1;min-width:0;font-weight:500;font-size:15px}
+.it.missing .it-name{color:var(--bad);font-weight:700}
+.seg{display:inline-grid;grid-template-columns:repeat(3,44px);border:1.5px solid var(--line);border-radius:10px;overflow:hidden;flex:none}
+.seg button{border:0;background:var(--surface);height:42px;font-weight:700;font-size:17px;cursor:pointer;color:var(--muted)}
+.seg button+button{border-left:1.5px solid var(--line)}
+.seg button[aria-pressed=true][data-st="✓"]{background:var(--ok);color:var(--accent-ink)}
+.seg button[aria-pressed=true][data-st="C"]{background:var(--warn);color:var(--accent-ink)}
+.seg button[aria-pressed=true][data-st="X"]{background:var(--bad);color:var(--accent-ink)}
+.it-x{display:grid;gap:10px}
+.prog{font-family:var(--f-display);font-weight:700;font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* fotos */
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.shot{position:relative;display:grid;place-items:center;aspect-ratio:1;max-width:100%;border:2px dashed var(--line);border-radius:12px;background:var(--surface-2);cursor:pointer;overflow:hidden;text-align:center;padding:6px}
+.shot input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.shot .cap{position:relative;font-size:12px;font-weight:600;color:var(--muted);line-height:1.2;display:grid;gap:4px;justify-items:center}
+.shot.has{border-style:solid;border-color:var(--ok)}
+.shot.has img{display:block}
+.shot.has .cap{align-self:end;background:var(--surface);color:var(--ink);border-radius:6px;padding:2px 6px;margin-bottom:2px}
+.shot.has .cap svg{display:none}
+.shot.missing{border-color:var(--bad)}
+.shot.wide{aspect-ratio:auto;min-height:120px}
+
+/* situação */
+.fleet{display:grid;gap:10px}
+.veh{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:center}
+.veh .km{font-family:var(--f-display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+.pills{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:13px;font-weight:600;border-radius:999px;padding:4px 10px}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}.pill.info{background:var(--accent-soft);color:var(--accent)}
+.hist{display:grid}
+.hi{display:grid;grid-template-columns:34px 1fr;gap:10px;padding-block:11px;border-bottom:1px solid var(--line)}
+.hi:last-child{border-bottom:0}
+.hi .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
+.hi.al .ic{background:var(--bad-soft);color:var(--bad)}
+.hi .t{font-weight:600;font-size:15px}.hi .d{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.empty{color:var(--muted);font-size:15px;padding-block:8px}
+
+/* login */
+.people{display:grid;gap:8px}
+.person{display:flex;align-items:center;gap:12px;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;font-weight:600;font-size:17px;cursor:pointer;text-align:left;min-height:56px}
+.av{width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:18px;flex:none}
+
+/* abas */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+nav button{height:var(--nav-h);border:0;background:none;display:grid;place-items:center;align-content:center;gap:3px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;position:relative}
+nav button[aria-current=page]{color:var(--accent)}
+nav button[aria-current=page]::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--accent)}
+nav .dot{position:absolute;top:10px;right:calc(50% - 18px);width:9px;height:9px;border-radius:50%;background:var(--bad);border:2px solid var(--surface)}
+
+/* envio e avisos */
+.overlay{position:fixed;inset:0;z-index:20;background:rgba(10,18,28,.55);display:grid;place-items:center;padding:24px}
+.overlay .box{background:var(--surface);border-radius:16px;padding:22px;display:grid;gap:12px;justify-items:center;min-width:220px;text-align:center;font-weight:600}
+.spin{width:34px;height:34px;border-radius:50%;border:4px solid var(--accent-soft);border-top-color:var(--accent);animation:sp 0.9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 12px);z-index:21;background:var(--ink);color:var(--surface);padding:12px 16px;border-radius:12px;font-weight:600;font-size:15px;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
+.toast.bad{background:var(--bad);color:#fff}
+.subtabs{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.subtabs button{border:0;background:none;border-radius:9px;min-height:42px;font-weight:600;font-size:15px;color:var(--muted);cursor:pointer}
+.subtabs button[aria-pressed=true]{background:var(--surface);color:var(--accent);box-shadow:var(--shadow)}
+.shots.sm{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
+.thumb{position:relative;aspect-ratio:1;max-width:100%;border-radius:12px;overflow:hidden;border:2px solid var(--ok)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb button{position:absolute;top:4px;right:4px;width:30px;height:30px;border-radius:50%;border:0;background:rgba(10,18,28,.72);color:#fff;font-size:18px;line-height:1;cursor:pointer}
+.plus{font-size:30px;line-height:1;font-weight:500;color:var(--accent)}
+.rec{display:grid;gap:8px;padding-block:14px;border-bottom:1px solid var(--line)}
+.rec:first-child{padding-top:2px}.rec:last-child{border-bottom:0;padding-bottom:2px}
+.rec-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.rec-t{font-family:var(--f-display);font-weight:700;font-size:20px}
+.rec-d{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rec .btn,#relOut .btn{min-height:44px;font-size:16px}
+a.btn{text-decoration:none}
+select.inp{appearance:auto;font-size:16px;background:var(--surface);min-height:50px}
+.sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sum div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
+.sum b{display:block;font-family:var(--f-display);font-weight:700;font-size:19px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sum span{font-size:12px;color:var(--muted)}
+.sec{font-family:var(--f-display);font-weight:700;font-size:22px;margin:10px 0 -4px}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+html{padding-top:env(safe-area-inset-top,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+.sync{background:var(--accent-soft);color:var(--ink);font-size:13px;font-weight:600;padding-block:7px;display:flex;align-items:center;justify-content:center;gap:10px}
+.sync button{border:0;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:4px 12px;font-weight:700;font-size:13px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<header>
+  <div id="demoBar" class="demo" hidden>Modo demonstração · dados de exemplo, salvos só neste aparelho</div>
+  <div id="syncBar" class="sync" hidden><span id="syncTxt"></span><button data-act="sync">Enviar agora</button></div>
+  <div class="wrap hd" id="hd"></div>
+</header>
+<main class="wrap" id="view"></main>
+<nav id="nav" hidden><div class="in">
+  <button data-view="viagem"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h-1a1 1 0 0 1-1-1v-4l2-5h12l2 5v4a1 1 0 0 1-1 1h-1"/><circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/><path d="M9.5 17h5M3 12h18"/></svg>Viagem</button>
+  <button data-view="abast"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M4 10h10"/><path d="M14 8h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 0 3 0V9l-3-3"/></svg>Abastecer</button>
+  <button data-view="vist"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 12l2 2 4-4M9 17h6"/></svg>Vistoria<span class="dot" id="vdot" hidden></span></button>
+  <button data-view="sit"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M7 16V10M12 16V5M17 16v-4"/></svg>Situação</button>
+</div></nav>
+<div id="ovl" class="overlay" hidden><div class="box"><div class="spin"></div><div id="ovlMsg">Enviando…</div></div></div>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script>
+/* ===================== conexão com o servidor ===================== */
+const API = String(window.FROTA_API || '').trim();
+const MODO_API = /^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(API);
+async function chamar(acao, dados){
+  let r;
+  try {
+    r = await fetch(API, {method: 'POST', redirect: 'follow', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({acao, dados})});
+  } catch(e){ const err = new Error('Sem conexão com a internet.'); err.rede = true; throw err; }
+  if (!r.ok){ const err = new Error('O servidor não respondeu (erro ' + r.status + ').'); err.rede = true; throw err; }
+  let j; try { j = await r.json(); } catch(e){ const err = new Error('Resposta inválida do servidor.'); err.rede = true; throw err; }
+  if (!j.ok) throw new Error(j.erro || 'Erro no servidor.');
+  return j.result;
+}
+function api(fn, arg){
+  if (MODO_API) return chamar(fn, arg);
+  return new Promise((res, rej) => setTimeout(() => { try { res(Demo[fn](arg)); } catch(e){ rej(e); } }, 450));
+}
+
+/* fila de envios: tudo passa por aqui; sem sinal, fica guardado no celular e sai quando a internet voltar */
+const Fila = {
+  _db: null, _mem: [],
+  abrir(){
+    if (this._db) return Promise.resolve(this._db);
+    return new Promise((res, rej) => {
+      const q = indexedDB.open('frota-hauke', 1);
+      q.onupgradeneeded = () => q.result.createObjectStore('fila', {keyPath: 'k', autoIncrement: true});
+      q.onsuccess = () => { this._db = q.result; res(q.result); };
+      q.onerror = () => rej(q.error);
+    });
+  },
+  async op(modo, fn){
+    try {
+      const db = await this.abrir();
+      return await new Promise((res, rej) => {
+        const t = db.transaction('fila', modo), r = fn(t.objectStore('fila'));
+        t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error);
+      });
+    } catch(e){ return null; }
+  },
+  async add(item){ const r = await this.op('readwrite', s => s.add(item)); if (r == null){ item.k = Date.now() + Math.random(); this._mem.push(item); } },
+  async todos(){ const r = await this.op('readonly', s => s.getAll()); return (r || []).concat(this._mem).sort((a, b) => a.k - b.k); },
+  async del(k){ this._mem = this._mem.filter(i => i.k !== k); await this.op('readwrite', s => s.delete(k)); }
+};
+const NOMES_ENVIO = {iniciarUso: 'saída', encerrarUso: 'chegada', salvarAbastecimento: 'abastecimento', salvarVistoria: 'vistoria'};
+let sincronizando = false;
+async function sincronizar(){
+  if (sincronizando) return {pendentes: (await Fila.todos()).length, erros: [], enviados: 0};
+  sincronizando = true; const erros = []; let enviados = 0;
+  try {
+    for (const item of await Fila.todos()){
+      try {
+        const r = await api(item.fn, item.dados);
+        await Fila.del(item.k); enviados++;
+        if (r && r.estado){ S.init.estado = r.estado; guardarInit(); }
+      } catch(e){
+        if (e.rede) break;
+        await Fila.del(item.k);
+        erros.push('Registro de ' + NOMES_ENVIO[item.fn] + ' (' + quando(item.dados.criadoEm) + ') recusado: ' + e.message);
+      }
+    }
+  } finally { sincronizando = false; }
+  const pendentes = (await Fila.todos()).length;
+  await barraFila(pendentes);
+  return {pendentes, erros, enviados};
+}
+async function barraFila(n){
+  if (n == null) n = (await Fila.todos()).length;
+  $('#syncBar').hidden = !n;
+  $('#syncTxt').textContent = n === 1 ? '1 envio aguardando internet' : n + ' envios aguardando internet';
+}
+/* atualiza a tela na hora, mesmo antes do servidor confirmar */
+function aplicarLocal(fn, d){
+  const e = S.init.estado[d.placa]; if (!e) return;
+  const up = v => { if (+v > e.ultimoKm) e.ultimoKm = +v; };
+  if (fn === 'iniciarUso'){ e.usoAberto = {id: d.id, motorista: d.auth.nome, destino: d.destino, saida: d.criadoEm, kmSaida: d.kmSaida}; up(d.kmSaida); }
+  if (fn === 'encerrarUso'){ e.usoAberto = null; up(d.kmChegada); }
+  if (fn === 'salvarAbastecimento') up(d.km);
+  if (fn === 'salvarVistoria'){ e.ultimaVistoria = d.criadoEm; e.ultimaVistoriaPor = d.auth.nome; up(d.km);
+    e.avariasAbertas += Object.values(d.itens).filter(v => v.s === 'X').length; }
+  guardarInit();
+}
+function guardarInit(){ if (MODO_API && S.init) LS.set('frota-init', S.init); }
+const novoId = () => (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)).toUpperCase();
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+
+/* ===================== utilidades ===================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const int = v => { const d = String(v ?? '').replace(/\D/g, ''); return d ? parseInt(d, 10) : NaN; };
+const dec = v => { let s = String(v ?? '').trim(); if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); const n = parseFloat(s); return isFinite(n) ? n : NaN; };
+const km = n => isFinite(n) ? n.toLocaleString('pt-BR') + ' km' : '—';
+const brl = n => isFinite(n) ? n.toLocaleString('pt-BR', {style:'currency', currency:'BRL'}) : '—';
+const hhmm = d => d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+const dias = iso => iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : null;
+function quando(iso){
+  if (!iso) return '';
+  const d = new Date(iso), hoje = new Date(), on = new Date(Date.now() - 864e5);
+  const same = (a, b) => a.toDateString() === b.toDateString();
+  if (same(d, hoje)) return 'hoje, ' + hhmm(d);
+  if (same(d, on)) return 'ontem, ' + hhmm(d);
+  return d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}) + ', ' + hhmm(d);
+}
+const iniciais = n => n.split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+
+async function comprimir(file, max = 1400, q = 0.72){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', q);
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* ===================== estado da tela ===================== */
+const S = {
+  init: null, user: LS.get('frota-user', null), placa: LS.get('frota-placa', null),
+  view: 'viagem', d: {}, vist: {}, shots: {}, tried: false, pinFor: null,
+  sub: {vist: 'novo', abast: 'novo'}, rel: {mes: null, placa: null}, relOut: null, vistList: []
+};
+const est = () => (S.init.estado[S.placa] || {});
+const veic = () => S.init.veiculos.find(v => v.placa === S.placa) || {};
+const todosItens = () => S.init.itens.flatMap(g => g.itens);
+const vistoriaVencida = e => !e.ultimaVistoria || dias(e.ultimaVistoria) >= (S.init.diasVistoria || 7);
+function limparRascunho(){ S.d = {}; S.vist = {}; S.shots = {}; S.tried = false; }
+
+/* ===================== componentes ===================== */
+const plate = (p, sm) => `<span class="plate${sm ? ' sm' : ''}"><span class="plate-band">BRASIL</span><span class="plate-num">${esc(p)}</span></span>`;
+const camIcon = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+function shot(key, label, extra = ''){
+  const has = !!S.shots[key], miss = S.tried && !has;
+  return `<label class="shot${has ? ' has' : ''}${miss ? ' missing' : ''} ${extra}">
+    <input type="file" accept="image/*" capture="environment" data-shot="${esc(key)}" aria-label="Foto: ${esc(label)}">
+    <img alt="" ${has ? `src="${S.shots[key]}"` : ''}>
+    <span class="cap">${camIcon}<span>${esc(label)}</span></span></label>`;
+}
+function multiShot(key){
+  const l = S.shots[key] || [], miss = S.tried && !l.length;
+  return `<div class="shots sm">${l.map((u, i) => `<div class="thumb"><img src="${u}" alt="Foto ${i + 1} do problema"><button data-rmfoto="${esc(key)}" data-i="${i}" aria-label="Remover foto ${i + 1}">×</button></div>`).join('')}${l.length < 6 ? `<label class="shot${miss ? ' missing' : ''}"><input type="file" accept="image/*" capture="environment" data-multi="${esc(key)}" aria-label="${l.length ? 'Adicionar mais uma foto' : 'Foto do problema'}"><span class="cap">${l.length ? '<span class="plus">+</span><span>Mais fotos</span>' : camIcon + '<span>Foto do problema</span>'}</span></label>` : ''}</div>`;
+}
+const subtabs = (view, a, b) => `<div class="subtabs">${[a, b].map(([k, l]) => `<button data-sub="${view}" data-v="${k}" aria-pressed="${S.sub[view] === k}">${l}</button>`).join('')}</div>`;
+const n2 = n => String(n).padStart(2, '0');
+const nbr = (n, d) => (+n || 0).toLocaleString('pt-BR', {minimumFractionDigits: d, maximumFractionDigits: d});
+const fmtData = iso => { const d = new Date(iso); return d.toLocaleDateString('pt-BR') + ' · ' + hhmm(d); };
+const mesDe = iso => { const d = new Date(iso); return d.getFullYear() + '-' + n2(d.getMonth() + 1); };
+const mesAtual = () => mesDe(new Date());
+function stamp(){
+  return `<div class="stamp"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    <span>Registrado automaticamente: <b>${esc(S.user.nome)}</b> · data e hora do envio</span></div>`;
+}
+const val = k => esc(S.d[k] ?? '');
+
+/* ===================== telas ===================== */
+function vLogin(){
+  if (S.pinFor) return `<h1>Olá, ${esc(S.pinFor.split(' ')[0])}</h1>
+    <div class="card"><div class="f"><label for="pin">Seu PIN</label>
+      <input type="tel" id="pin" inputmode="numeric" maxlength="6" class="big" autocomplete="off" placeholder="••••"></div>
+      <button class="btn" data-act="pin">Entrar</button>
+      <button class="linkbtn" data-act="voltar">Não sou ${esc(S.pinFor.split(' ')[0])}</button></div>`;
+  return `<h1>Quem vai usar o carro?</h1>
+    <p class="lead">Escolha seu nome. O app lembra de você neste celular e grava seu nome em cada registro.</p>
+    <div class="people">${S.init.motoristas.map(m => `<button class="person" data-nome="${esc(m.nome)}"><span class="av">${esc(iniciais(m.nome))}</span>${esc(m.nome)}</button>`).join('')}</div>`;
+}
+
+function vViagem(){
+  const e = est(), u = e.usoAberto, venc = vistoriaVencida(e);
+  const aviso = venc ? `<div class="note warn"><div><b>Vistoria semanal pendente.</b> ${e.ultimaVistoria ? 'A última foi há ' + dias(e.ultimaVistoria) + ' dias.' : 'Este carro ainda não tem vistoria.'} Faça antes de sair.</div>
+      <button class="btn ghost" data-go="vist">Fazer vistoria agora</button></div>` : '';
+  if (u) {
+    const kmc = int(S.d.kmChegada), rod = kmc - u.kmSaida;
+    return `${aviso}<h1>Viagem em andamento</h1>
+      <div class="card"><dl class="live">
+        <dt>Status</dt><dd><span class="pulse"></span>Em uso</dd>
+        <dt>Motorista</dt><dd>${esc(u.motorista)}</dd>
+        <dt>Destino</dt><dd>${esc(u.destino)}</dd>
+        <dt>Saída</dt><dd>${quando(u.saida)} · ${km(u.kmSaida)}</dd></dl></div>
+      <div class="card"><h2>Chegada</h2>
+        <div class="f"><label for="kmChegada">Km no painel agora</label>
+          <div class="suffix"><input type="text" id="kmChegada" data-f="kmChegada" inputmode="numeric" class="big" value="${val('kmChegada')}" placeholder="${u.kmSaida}"><span>km</span></div>
+          <div class="hint" id="rodados">${isFinite(rod) && rod >= 0 ? 'Rodados nesta viagem: ' + km(rod) : 'Digite o km que aparece no painel.'}</div></div>
+        ${stamp()}
+        <button class="btn" data-act="encerrar">Encerrar viagem</button></div>`;
+  }
+  return `${aviso}<h1>Nova viagem</h1>
+    <div class="card">
+      <div class="f"><label for="kmSaida">Km no painel</label>
+        <div class="suffix"><input type="text" id="kmSaida" data-f="kmSaida" inputmode="numeric" class="big" value="${S.d.kmSaida ?? (e.ultimoKm || '')}"><span>km</span></div>
+        <div class="hint" id="kmHint">${kmHint()}</div></div>
+      <div class="f"><label for="destino">Destino / finalidade</label>
+        <input type="text" id="destino" data-f="destino" value="${val('destino')}" placeholder="Ex.: Codil – visita técnica" autocomplete="off"></div>
+      ${stamp()}
+      <button class="btn" data-act="iniciar">Registrar saída</button></div>
+    <p class="lead">Na volta, abra o app e toque em <b>Encerrar viagem</b> para registrar o km de chegada.</p>`;
+}
+function kmHint(){
+  const e = est(), v = int(S.d.kmSaida ?? e.ultimoKm);
+  if (!e.ultimoKm) return 'Primeiro registro deste carro.';
+  if (!isFinite(v)) return 'Último registro: ' + km(e.ultimoKm) + '.';
+  const dif = v - e.ultimoKm;
+  if (dif === 0) return 'Confere com o último registro (' + km(e.ultimoKm) + ').';
+  if (dif < 0) return '<span style="color:var(--bad);font-weight:600">Menor que o último registro (' + km(e.ultimoKm) + '). Confira o painel.</span>';
+  return '<span style="color:var(--warn);font-weight:600">' + km(dif) + ' a mais que o último registro (' + km(e.ultimoKm) + '). Houve uso sem registro?</span>';
+}
+
+function vAbast(){
+  return subtabs('abast', ['novo', 'Novo abastecimento'], ['hist', 'Histórico']) + (S.sub.abast === 'hist' ? vAbastHist() : vAbastNovo());
+}
+function vAbastHist(){
+  return `<h1>Abastecimentos · ${esc(S.placa)}</h1><div id="sumAbast"></div>
+    <div class="card"><div class="hist" id="histAbast"><div class="empty">Carregando…</div></div></div>`;
+}
+function vAbastNovo(){
+  const l = dec(S.d.litros), v = dec(S.d.valor), pl = l > 0 && v > 0 ? brl(v / l) + ' por litro' : '';
+  const chips = (f, ops) => `<div class="chips">${ops.map(o => `<button class="chip" data-chip="${f}" data-v="${esc(o[0])}" aria-pressed="${S.d[f] === o[0]}">${esc(o[1])}</button>`).join('')}</div>`;
+  return `<h1>Abastecimento</h1>
+    <div class="card">
+      <div class="f"><label for="posto">Posto</label><input type="text" id="posto" data-f="posto" value="${val('posto')}" placeholder="Nome e cidade"></div>
+      <div class="f"><label for="kmAbast">Km no painel</label>
+        <div class="suffix"><input type="text" id="kmAbast" data-f="kmAbast" inputmode="numeric" class="big" value="${S.d.kmAbast ?? (est().ultimoKm || '')}"><span>km</span></div></div>
+      <div class="f"><span class="lbl">Combustível</span>${chips('comb', [['Gasolina','Gasolina'],['Etanol','Etanol'],['Diesel S10','Diesel S10'],['GNV','GNV']])}</div>
+      <div class="row2">
+        <div class="f"><label for="litros">Litros</label><input type="text" id="litros" data-f="litros" inputmode="decimal" value="${val('litros')}" placeholder="0,00"></div>
+        <div class="f"><label for="valor">Valor total (R$)</label><input type="text" id="valor" data-f="valor" inputmode="decimal" value="${val('valor')}" placeholder="0,00"></div>
+      </div>
+      <div class="hint" id="porLitro" style="font-size:13px;color:var(--muted);margin-top:-6px">${pl}</div>
+      <div class="f"><span class="lbl">Tanque cheio?</span>${chips('cheio', [['S','Sim'],['N','Não']])}</div>
+      <div class="f"><span class="lbl">Foto do cupom fiscal</span>${shot('cupom', 'Tirar foto do cupom', 'wide')}</div>
+      ${stamp()}
+      <button class="btn" data-act="abast">Enviar abastecimento</button></div>`;
+}
+
+function itemRow(it, idx){
+  const v = S.vist[it] || {}, miss = S.tried && (!v.s || (v.s === 'X' && (!v.obs || !(S.shots['i:' + it] || []).length)));
+  const b = s => `<button data-st="${s}" data-item="${esc(it)}" aria-pressed="${v.s === s}" aria-label="${esc(it)}: ${s === '✓' ? 'OK' : s === 'C' ? 'completado' : 'problema'}">${s}</button>`;
+  return `<div class="it${miss ? ' missing' : ''}" id="it-${idx}">
+    <div class="it-top"><span class="it-name">${esc(it)}</span><span class="seg">${b('✓')}${b('C')}${b('X')}</span></div>
+    ${v.s === 'X' ? `<div class="it-x"><textarea data-obs="${esc(it)}" placeholder="O que é e onde fica (ex.: risco na porta traseira esquerda)">${esc(v.obs || '')}</textarea>${multiShot('i:' + it)}</div>` : ''}
+    ${v.s === 'C' ? `<input type="text" data-obs="${esc(it)}" value="${esc(v.obs || '')}" placeholder="O que foi completado/ajustado (opcional)">` : ''}
+  </div>`;
+}
+function progresso(){
+  const t = todosItens(), f = t.filter(i => S.vist[i] && S.vist[i].s).length;
+  const fg = S.init.fotosGerais.filter(n => S.shots['g:' + n]).length;
+  return `${f}/${t.length} itens · ${fg}/${S.init.fotosGerais.length} fotos`;
+}
+function vVist(){
+  return subtabs('vist', ['novo', 'Nova vistoria'], ['hist', 'Histórico']) + (S.sub.vist === 'hist' ? vVistHist() : vVistNova());
+}
+function vVistHist(){
+  return `<h1>Vistorias · ${esc(S.placa)}</h1><div id="pendVist"></div>
+    <div class="card"><div id="histVist"><div class="empty">Carregando…</div></div></div>
+    <p class="lead">Cada vistoria gera um PDF com os itens marcados, as observações e as fotos.</p>`;
+}
+function recVist(v){
+  return `<div class="rec" data-rec="${esc(v.id)}"><div class="rec-top"><span class="rec-t">Vistoria ${n2(v.numero)}</span><span class="rec-d">${fmtData(v.quando)}</span></div>
+    <div class="rec-d">${esc(v.motorista)} · ${km(v.km)}</div>
+    <div class="pills"><span class="pill ok">${v.ok} OK</span>${v.c ? `<span class="pill warn">${v.c} completado${v.c > 1 ? 's' : ''}</span>` : ''}${v.x ? `<span class="pill bad">${v.x} problema${v.x > 1 ? 's' : ''}</span>` : ''}</div>
+    ${v.pdf ? `<a class="btn ghost" href="${esc(v.pdf)}" target="_blank" rel="noopener">Abrir PDF</a>` : `<button class="btn ghost" data-pdfvist="${esc(v.id)}">Gerar PDF</button>`}</div>`;
+}
+async function carregarVist(){
+  if (MODO_API){
+    const p = (await Fila.todos()).filter(i => i.fn === 'salvarVistoria' && i.dados.placa === S.placa);
+    if ($('#pendVist') && p.length) $('#pendVist').innerHTML = `<div class="note info"><div><b>${p.length === 1 ? '1 vistoria aguardando' : p.length + ' vistorias aguardando'} internet.</b> O PDF é gerado quando ela chegar ao servidor.</div></div>`;
+  }
+  try {
+    const l = await api('getHistorico', {placa: S.placa, tipo: 'vist'}), el = $('#histVist');
+    if (!el) return;
+    S.vistList = l;
+    el.innerHTML = l.length ? l.map(recVist).join('') : '<div class="empty">Nenhuma vistoria registrada para este carro.</div>';
+  } catch(e){ const el = $('#histVist'); if (el) el.innerHTML = `<div class="empty">Não foi possível carregar: ${esc(e.message)}</div>`; }
+}
+async function carregarAbast(){
+  try {
+    const l = await api('getHistorico', {placa: S.placa, tipo: 'abast'}), el = $('#histAbast');
+    if (!el) return;
+    const m = l.filter(a => a.quando && mesDe(a.quando) === mesAtual());
+    const lt = m.reduce((s, a) => s + (+a.litros || 0), 0), vl = m.reduce((s, a) => s + (+a.valor || 0), 0);
+    $('#sumAbast').innerHTML = `<div class="sum"><div><b>${m.length}</b><span>abastecimentos no mês</span></div><div><b>${nbr(lt, 1)} L</b><span>litros no mês</span></div><div><b>${nbr(vl, 2)}</b><span>R$ gastos no mês</span></div></div>`;
+    el.innerHTML = l.length ? l.map(a => `<div class="hi"><div class="ic">${histIcon.abast}</div><div>
+      <div class="t">${nbr(a.litros, 2)} L ${esc(a.comb)} · ${brl(+a.valor)}</div>
+      <div class="d">${quando(a.quando)} · ${esc(a.motorista)}</div>
+      <div class="d">${esc(a.posto || 'posto não informado')} · ${km(+a.km)} · ${brl(+a.precoL)}/L${a.cheio === 'S' ? ' · tanque cheio' : ''}</div></div></div>`).join('')
+      : '<div class="empty">Nenhum abastecimento registrado para este carro.</div>';
+  } catch(e){ const el = $('#histAbast'); if (el) el.innerHTML = `<div class="empty">Não foi possível carregar: ${esc(e.message)}</div>`; }
+}
+function vVistNova(){
+  const e = est(); let idx = 0;
+  const info = e.ultimaVistoria
+    ? (vistoriaVencida(e) ? `<div class="note warn"><div><b>Vistoria vencida.</b> Última há ${dias(e.ultimaVistoria)} dias, por ${esc(e.ultimaVistoriaPor)}.</div></div>`
+       : `<div class="note ok"><div>Vistoria em dia: ${quando(e.ultimaVistoria)}, por ${esc(e.ultimaVistoriaPor)}.</div></div>`)
+    : `<div class="note warn"><div><b>Primeira vistoria deste carro.</b></div></div>`;
+  return `${info}<div class="grp-hd"><h1>Vistoria semanal</h1><span class="prog" id="vprog">${progresso()}</span></div>
+    <p class="lead">Faça antes de sair com o carro. Item com problema pede descrição e pelo menos uma foto.</p>
+    <div class="legend"><span><b style="background:var(--ok)">✓</b>OK</span><span><b style="background:var(--warn)">C</b>Completado / ajustado</span><span><b style="background:var(--bad)">X</b>Problema</span></div>
+    <div class="card"><div class="f"><label for="kmVist">Km no painel</label>
+      <div class="suffix"><input type="text" id="kmVist" data-f="kmVist" inputmode="numeric" class="big" value="${S.d.kmVist ?? (e.ultimoKm || '')}"><span>km</span></div></div></div>
+    ${S.init.itens.map((g, gi) => `<div class="card"><div class="grp-hd"><h2>${esc(g.grupo)}</h2><button class="linkbtn" data-allok="${gi}">Restantes OK</button></div>
+      <div class="items">${g.itens.map(it => itemRow(it, idx++)).join('')}</div></div>`).join('')}
+    <div class="card"><h2>Fotos do veículo</h2><p class="lead">Mostram o estado do carro nesta semana. Toque em cada quadro para fotografar.</p>
+      <div class="shots">${S.init.fotosGerais.map(n => shot('g:' + n, n)).join('')}</div></div>
+    <div id="vmsg"></div>
+    <div class="card">${stamp()}<button class="btn" data-act="vist">Enviar vistoria</button></div>`;
+}
+
+function vSit(){
+  const linhas = S.init.veiculos.map(v => {
+    const e = S.init.estado[v.placa] || {}, venc = vistoriaVencida(e), p = [];
+    p.push(e.ultimaVistoria ? `<span class="pill ${venc ? 'bad' : 'ok'}">Vistoria ${venc ? 'vencida' : 'em dia'} · há ${dias(e.ultimaVistoria)} d</span>` : '<span class="pill bad">Sem vistoria</span>');
+    if (e.usoAberto) p.push(`<span class="pill info">Em uso · ${esc(e.usoAberto.motorista.split(' ')[0])}</span>`);
+    if (e.avariasAbertas) p.push(`<span class="pill warn">${e.avariasAbertas} avaria${e.avariasAbertas > 1 ? 's' : ''} em aberto</span>`);
+    return `<div class="card veh">${plate(v.placa, true)}<div><div class="km">${km(e.ultimoKm)}</div><div class="carro">${esc(v.modelo)}</div></div><div class="pills">${p.join('')}</div></div>`;
+  }).join('');
+  if (!S.rel.mes) S.rel.mes = mesAtual();
+  if (S.rel.placa == null) S.rel.placa = S.placa;
+  const meses = []; const d = new Date(); d.setDate(1);
+  for (let i = 0; i < 12; i++){ const v = d.getFullYear() + '-' + n2(d.getMonth() + 1);
+    meses.push(`<option value="${v}"${v === S.rel.mes ? ' selected' : ''}>${d.toLocaleDateString('pt-BR', {month: 'long', year: 'numeric'})}</option>`); d.setMonth(d.getMonth() - 1); }
+  return `<h1>Situação da frota</h1><div class="fleet">${linhas}</div>
+    <div class="sec">Gerar relatório mensal</div>
+    <div class="card"><div class="row2" style="grid-template-columns:3fr 2fr">
+        <div class="f"><label for="relMes">Mês</label><select id="relMes" class="inp">${meses.join('')}</select></div>
+        <div class="f"><label for="relPlaca">Veículo</label><select id="relPlaca" class="inp">${S.init.veiculos.map(v => `<option value="${esc(v.placa)}"${v.placa === S.rel.placa ? ' selected' : ''}>${esc(v.placa)}</option>`).join('')}<option value=""${S.rel.placa === '' ? ' selected' : ''}>Todos</option></select></div></div>
+      <p class="lead">PDF com resumo do mês (km rodados, empresas visitadas, problemas relatados) e os históricos de viagens e de abastecimentos.</p>
+      <button class="btn" data-act="relatorio">Gerar relatório</button>
+      <div id="relOut">${S.relOut ? relLink(S.relOut) : ''}</div></div>
+    <div class="sec">Histórico de viagens · ${esc(S.placa)}</div>
+    <div class="card"><div class="hist" id="hist"><div class="empty">Carregando…</div></div></div>`;
+}
+const histIcon = {
+  uso: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19 10 5h4l6 14M12 9v2M12 14v2"/></svg>',
+  abast: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v16M4 21h11M5 10h9"/></svg>',
+  vist: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="m9 12 2 2 4-4"/></svg>'
+};
+const relLink = r => `<a class="btn ghost" href="${esc(r.url)}" target="_blank" rel="noopener">Abrir PDF · ${esc(r.nome)}</a>`;
+async function carregarHist(){
+  try {
+    const l = await api('getHistorico', {placa: S.placa, tipo: 'uso'}), el = $('#hist');
+    if (!el) return;
+    el.innerHTML = l.length ? l.map(h => `<div class="hi${h.alerta ? ' al' : ''}"><div class="ic">${histIcon[h.tipo]}</div>
+      <div><div class="t">${esc(h.titulo)}</div><div class="d">${quando(h.quando)} · ${esc(h.motorista)}</div><div class="d">${esc(h.detalhe)}</div></div></div>`).join('')
+      : '<div class="empty">Nenhuma viagem registrada para este carro.</div>';
+  } catch(e){ const el = $('#hist'); if (el) el.innerHTML = `<div class="empty">Não foi possível carregar: ${esc(e.message)}</div>`; }
+}
+
+/* ===================== desenho geral ===================== */
+function render(){
+  $('#demoBar').hidden = !S.init.demo;
+  if (S.init.demo && API) $('#demoBar').textContent = 'Modo demonstração · a URL do config.js não é uma URL de App da Web do Google (precisa terminar em /exec)';
+  if (!S.user){
+    $('#hd').innerHTML = `<div class="brand">Frota Hauke<small>Controle de veículos</small></div>`;
+    $('#nav').hidden = true; $('#view').innerHTML = vLogin();
+    const pin = $('#pin'); if (pin) pin.focus();
+    return;
+  }
+  const v = veic();
+  $('#hd').innerHTML = `<div class="platepick">${plate(S.placa)}
+      <select id="selPlaca" aria-label="Trocar de veículo">${S.init.veiculos.map(x => `<option value="${esc(x.placa)}"${x.placa === S.placa ? ' selected' : ''}>${esc(x.placa)} · ${esc(x.modelo)}</option>`).join('')}</select></div>
+    <div style="min-width:0"><div class="carro" style="margin:0">${esc(v.modelo || '')}</div><div class="carro">Toque na placa para trocar</div></div>
+    <span class="sp"></span><button class="who" data-act="sair" title="Trocar motorista">${esc(S.user.nome.split(' ')[0])} ▾</button>`;
+  $('#nav').hidden = false;
+  $('#vdot').hidden = !vistoriaVencida(est());
+  $('#view').innerHTML = ({viagem: vViagem, abast: vAbast, vist: vVist, sit: vSit})[S.view]();
+  document.querySelectorAll('#nav button').forEach(b => b.setAttribute('aria-current', b.dataset.view === S.view ? 'page' : 'false'));
+  if (S.view === 'sit') carregarHist();
+  if (S.view === 'vist' && S.sub.vist === 'hist') carregarVist();
+  if (S.view === 'abast' && S.sub.abast === 'hist') carregarAbast();
+}
+function ir(view){ S.view = view; S.tried = false; render(); window.scrollTo(0, 0); }
+
+let toastT;
+function toast(msg, bad){ const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, bad ? 5000 : 3200); }
+function ocupado(msg){ $('#ovlMsg').textContent = msg; $('#ovl').hidden = !msg; }
+async function enviar(fn, payload, msg, ok){
+  const dados = Object.assign({id: novoId(), auth: S.user, placa: S.placa, criadoEm: new Date().toISOString()}, payload);
+  if (!MODO_API){                       // demonstração: grava direto
+    ocupado(msg);
+    try {
+      const r = await api(fn, dados);
+      S.init.estado = r.estado; limparRascunho(); salvarRascunho();
+      ocupado(null); render(); window.scrollTo(0, 0); toast(ok + ' · ' + quando(r.quando));
+    } catch(e){ ocupado(null); toast(e.message, true); }
+    return;
+  }
+  ocupado(msg);
+  await Fila.add({fn, dados});
+  aplicarLocal(fn, dados); limparRascunho(); salvarRascunho();
+  const r = await sincronizar();
+  ocupado(null); render(); window.scrollTo(0, 0);
+  if (r.erros.length) toast(r.erros[0], true);
+  else if (r.pendentes) toast('Sem sinal: registro guardado no celular. Ele é enviado sozinho quando a internet voltar.');
+  else toast(ok + ' · ' + quando(dados.criadoEm));
+}
+
+/* rascunho: se o celular fechar o app no meio da vistoria, os dados continuam lá (fotos incluídas, se couber) */
+function salvarRascunho(){
+  const k = 'frota-rasc-' + S.placa;
+  if (!LS.set(k, {d: S.d, vist: S.vist, shots: S.shots})) LS.set(k, {d: S.d, vist: S.vist, shots: {}});
+}
+function carregarRascunho(){ const r = LS.get('frota-rasc-' + S.placa, null); limparRascunho(); if (r){ S.d = r.d || {}; S.vist = r.vist || {}; S.shots = r.shots || {};
+  Object.keys(S.shots).forEach(k => { if (k.startsWith('i:') && typeof S.shots[k] === 'string') S.shots[k] = [S.shots[k]]; }); } }
+
+/* ===================== ações ===================== */
+document.addEventListener('click', async ev => {
+  const t = ev.target.closest('button'); if (!t) return;
+  if (t.dataset.view) return ir(t.dataset.view);
+  if (t.dataset.go){ if (t.dataset.go === 'vist') S.sub.vist = 'novo'; return ir(t.dataset.go); }
+  if (t.dataset.sub){ S.sub[t.dataset.sub] = t.dataset.v; S.tried = false; render(); window.scrollTo(0, 0); return; }
+  if (t.dataset.rmfoto){
+    const key = t.dataset.rmfoto, l = (S.shots[key] || []).slice(); l.splice(+t.dataset.i, 1); S.shots[key] = l;
+    const row = t.closest('.it'); row.outerHTML = itemRow(key.slice(2), +row.id.slice(3)); return salvarRascunho();
+  }
+  if (t.dataset.pdfvist){
+    const id = t.dataset.pdfvist; t.disabled = true; t.textContent = 'Gerando PDF…';
+    try {
+      const r = await api('pdfVistoria', {id}), v = S.vistList.find(x => x.id === id);
+      if (v){ v.pdf = r.url; const rec = t.closest('.rec'); if (rec) rec.outerHTML = recVist(v); }
+      toast('PDF pronto. Toque em Abrir PDF.');
+    } catch(e){ t.disabled = false; t.textContent = 'Gerar PDF'; toast(e.message, true); }
+    return;
+  }
+  if (t.dataset.nome){
+    const m = S.init.motoristas.find(x => x.nome === t.dataset.nome);
+    if (m.temPin){ S.pinFor = m.nome; return render(); }
+    return entrar(m.nome, '');
+  }
+  if (t.dataset.chip){ S.d[t.dataset.chip] = t.dataset.v; t.parentNode.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c === t)); return salvarRascunho(); }
+  if (t.dataset.st){
+    const it = t.dataset.item, cur = S.vist[it] || {};
+    S.vist[it] = Object.assign({}, cur, {s: cur.s === t.dataset.st ? null : t.dataset.st});
+    const row = t.closest('.it'); row.outerHTML = itemRow(it, +row.id.slice(3));
+    $('#vprog').textContent = progresso(); return salvarRascunho();
+  }
+  if (t.dataset.allok !== undefined){
+    S.init.itens[+t.dataset.allok].itens.forEach(it => { if (!S.vist[it] || !S.vist[it].s) S.vist[it] = {s: '✓'}; });
+    const y = window.scrollY; render(); window.scrollTo(0, y); return salvarRascunho();
+  }
+  const a = t.dataset.act;
+  if (a === 'voltar'){ S.pinFor = null; return render(); }
+  if (a === 'pin') return entrar(S.pinFor, $('#pin').value);
+  if (a === 'relatorio'){
+    t.disabled = true; t.textContent = 'Gerando relatório…'; $('#relOut').innerHTML = '';
+    try { S.relOut = await api('relatorioMensal', {mes: S.rel.mes, placa: S.rel.placa}); const o = $('#relOut'); if (o) o.innerHTML = relLink(S.relOut); toast('Relatório pronto. Toque em Abrir PDF.'); }
+    catch(e){ toast(e.message, true); }
+    t.disabled = false; t.textContent = 'Gerar relatório'; return;
+  }
+  if (a === 'sync'){ ocupado('Enviando registros guardados…'); const r = await sincronizar(); ocupado(null); render();
+    return toast(r.erros[0] || (r.pendentes ? 'Ainda sem internet. Tente de novo mais tarde.' : 'Tudo enviado.'), !!r.erros.length); }
+  if (a === 'sair'){ S.user = null; S.pinFor = null; LS.del('frota-user'); return render(); }
+
+  if (a === 'iniciar'){
+    const k = int(S.d.kmSaida ?? est().ultimoKm);
+    if (!isFinite(k)) return toast('Informe o km do painel.', true);
+    if (!(S.d.destino || '').trim()) return toast('Informe o destino ou a finalidade.', true);
+    return enviar('iniciarUso', {kmSaida: k, destino: S.d.destino.trim()}, 'Registrando saída…', 'Saída registrada');
+  }
+  if (a === 'encerrar'){
+    const u = est().usoAberto, k = int(S.d.kmChegada);
+    if (!isFinite(k)) return toast('Informe o km de chegada.', true);
+    if (k < u.kmSaida) return toast('O km de chegada é menor que o de saída (' + km(u.kmSaida) + ').', true);
+    return enviar('encerrarUso', {id: u.id, kmChegada: k}, 'Encerrando viagem…', 'Viagem encerrada');
+  }
+  if (a === 'abast'){
+    const f = [];
+    const k = int(S.d.kmAbast ?? est().ultimoKm), l = dec(S.d.litros), v = dec(S.d.valor);
+    if (!isFinite(k)) f.push('km'); if (!(l > 0)) f.push('litros'); if (!(v > 0)) f.push('valor');
+    if (!S.d.comb) f.push('combustível'); if (!S.d.cheio) f.push('tanque cheio'); if (!S.shots.cupom) f.push('foto do cupom');
+    if (f.length){ S.tried = true; const y = window.scrollY; render(); window.scrollTo(0, y); return toast('Falta: ' + f.join(', ') + '.', true); }
+    return enviar('salvarAbastecimento', {posto: S.d.posto || '', km: k, combustivel: S.d.comb, litros: l, valor: v, tanqueCheio: S.d.cheio, foto: S.shots.cupom}, 'Enviando abastecimento…', 'Abastecimento registrado');
+  }
+  if (a === 'vist'){
+    const f = [], k = int(S.d.kmVist ?? est().ultimoKm);
+    if (!isFinite(k)) f.push('Km no painel');
+    todosItens().forEach(it => { const v = S.vist[it];
+      if (!v || !v.s) f.push(it);
+      else if (v.s === 'X'){ if (!(v.obs || '').trim()) f.push(it + ' (descrição)'); if (!(S.shots['i:' + it] || []).length) f.push(it + ' (foto)'); } });
+    S.init.fotosGerais.forEach(n => { if (!S.shots['g:' + n]) f.push('Foto: ' + n); });
+    if (f.length){
+      S.tried = true; render();
+      $('#vmsg').innerHTML = `<div class="note bad"><div><b>Falta preencher ${f.length} ${f.length > 1 ? 'itens' : 'item'}:</b></div><ul>${f.slice(0, 8).map(x => '<li>' + esc(x) + '</li>').join('')}${f.length > 8 ? '<li>e mais ' + (f.length - 8) + '</li>' : ''}</ul></div>`;
+      const first = document.querySelector('.it.missing, .shot.missing'); (first || $('#vmsg')).scrollIntoView({block: 'center'});
+      return;
+    }
+    const itens = {}; todosItens().forEach(it => { itens[it] = {s: S.vist[it].s, obs: S.vist[it].obs || '', fotos: S.vist[it].s === 'X' ? (S.shots['i:' + it] || []) : []}; });
+    const fotos = {}; S.init.fotosGerais.forEach(n => fotos[n] = S.shots['g:' + n]);
+    S.sub.vist = 'hist';
+    return enviar('salvarVistoria', {km: k, itens, fotos}, 'Enviando vistoria, fotos e gerando o PDF…', 'Vistoria enviada');
+  }
+});
+
+document.addEventListener('input', ev => {
+  const el = ev.target;
+  if (el.dataset.f){
+    S.d[el.dataset.f] = el.value;
+    if (el.dataset.f === 'kmSaida') $('#kmHint').innerHTML = kmHint();
+    if (el.dataset.f === 'kmChegada'){ const r = int(el.value) - est().usoAberto.kmSaida; $('#rodados').textContent = isFinite(r) && r >= 0 ? 'Rodados nesta viagem: ' + km(r) : 'Digite o km que aparece no painel.'; }
+    if (el.dataset.f === 'litros' || el.dataset.f === 'valor'){ const l = dec(S.d.litros), v = dec(S.d.valor); $('#porLitro').textContent = l > 0 && v > 0 ? brl(v / l) + ' por litro' : ''; }
+  }
+  if (el.dataset.obs !== undefined){ const it = el.dataset.obs; S.vist[it] = Object.assign({}, S.vist[it], {obs: el.value}); }
+  salvarRascunho();
+});
+
+document.addEventListener('change', async ev => {
+  const el = ev.target;
+  if (el.id === 'relMes' || el.id === 'relPlaca'){ S.rel[el.id === 'relMes' ? 'mes' : 'placa'] = el.value; S.relOut = null; const o = $('#relOut'); if (o) o.innerHTML = ''; return; }
+  if (el.dataset.multi && el.files && el.files[0]){
+    const key = el.dataset.multi, row = el.closest('.it');
+    el.closest('.shot').querySelector('.cap').innerHTML = '<span>Processando…</span>';
+    try { const url = await comprimir(el.files[0]); S.shots[key] = (S.shots[key] || []).concat(url); salvarRascunho(); }
+    catch(e){ toast('Não foi possível ler essa imagem. Tire a foto de novo.', true); }
+    if (row && row.isConnected) row.outerHTML = itemRow(key.slice(2), +row.id.slice(3));
+    return;
+  }
+  if (el.id === 'selPlaca'){ salvarRascunho(); S.placa = el.value; LS.set('frota-placa', S.placa); carregarRascunho(); return render(); }
+  if (el.dataset.shot && el.files && el.files[0]){
+    const lab = el.closest('.shot'); lab.querySelector('.cap span').textContent = 'Processando…';
+    try {
+      const url = await comprimir(el.files[0]);
+      S.shots[el.dataset.shot] = url;
+      lab.classList.add('has'); lab.classList.remove('missing'); lab.querySelector('img').src = url;
+      lab.querySelector('.cap span').textContent = 'Trocar foto';
+      if ($('#vprog')) $('#vprog').textContent = progresso();
+      salvarRascunho();
+    } catch(e){ lab.querySelector('.cap span').textContent = 'Tente outra foto'; toast('Não foi possível ler essa imagem. Tire a foto de novo.', true); }
+  }
+});
+
+async function entrar(nome, pin){
+  ocupado('Entrando…');
+  try { await api('login', {nome, pin}); S.user = {nome, pin}; S.pinFor = null; LS.set('frota-user', S.user); ocupado(null); render(); }
+  catch(e){ ocupado(null); toast(e.message, true); }
+}
+
+/* ===================== modo demonstração (fora do Google) ===================== */
+const Demo = {
+  _mem: null,
+  db(){
+    let d = LS.get('frota-demo-v2', null) || this._mem;
+    if (!d){ d = demoSeed(); this.save(d); }
+    return d;
+  },
+  save(d){ this._mem = d; LS.set('frota-demo-v2', d); },
+  getInit(){ const d = this.db(); return {demo: true, motoristas: d.mot.map(m => ({nome: m.nome, temPin: !!m.pin})), veiculos: d.vei, itens: DEMO_ITENS, fotosGerais: DEMO_FOTOS, diasVistoria: 7, estado: demoEstado(d)}; },
+  auth(a){ const m = this.db().mot.find(x => x.nome === (a && a.nome)); if (!m) throw new Error('Motorista não cadastrado.'); if (m.pin && String(a.pin) !== m.pin) throw new Error('PIN incorreto. No exemplo, o PIN é 1234.'); return m.nome; },
+  login(o){ return {ok: true, nome: this.auth(o)}; },
+  iniciarUso(o){ const d = this.db(), m = this.auth(o.auth), now = new Date().toISOString();
+    if (demoEstado(d)[o.placa].usoAberto) throw new Error('Este veículo já está em uso.');
+    d.usos.push({id: 'U' + Date.now(), placa: o.placa, saida: now, motorista: m, destino: o.destino, kmSaida: o.kmSaida, chegada: null, kmChegada: null});
+    this.save(d); return {ok: true, quando: now, estado: demoEstado(d)}; },
+  encerrarUso(o){ const d = this.db(), now = new Date().toISOString(); this.auth(o.auth);
+    const u = d.usos.find(x => x.id === o.id); u.chegada = now; u.kmChegada = o.kmChegada;
+    this.save(d); return {ok: true, quando: now, estado: demoEstado(d)}; },
+  salvarAbastecimento(o){ const d = this.db(), m = this.auth(o.auth), now = new Date().toISOString();
+    d.abast.push({placa: o.placa, quando: now, motorista: m, posto: o.posto, km: o.km, comb: o.combustivel, litros: o.litros, valor: o.valor, cheio: o.tanqueCheio});
+    this.save(d); return {ok: true, quando: now, estado: demoEstado(d)}; },
+  salvarVistoria(o){ const d = this.db(), m = this.auth(o.auth), now = new Date().toISOString();
+    const vs = Object.values(o.itens), x = Object.entries(o.itens).filter(e => e[1].s === 'X');
+    d.vist.push({id: o.id, placa: o.placa, quando: now, motorista: m, km: o.km, ok: vs.filter(v => v.s === '✓').length, c: vs.filter(v => v.s === 'C').length, x: x.length});
+    x.forEach(e => d.avar.push({placa: o.placa, item: e[0], status: 'Aberta'}));
+    this.save(d); return {ok: true, quando: now, estado: demoEstado(d)}; },
+  getHistorico(o){ const d = this.db(), t = o.tipo || 'uso', desc = (a, b) => b.quando.localeCompare(a.quando);
+    if (t === 'abast') return d.abast.filter(a => a.placa === o.placa).map(a => ({quando: a.quando, motorista: a.motorista, posto: a.posto, km: a.km, comb: a.comb, litros: a.litros, valor: a.valor, precoL: a.valor / a.litros, cheio: a.cheio})).sort(desc);
+    if (t === 'vist') return d.vist.filter(v => v.placa === o.placa).sort((a, b) => a.quando.localeCompare(b.quando))
+      .map((v, i) => ({id: v.id || ('V' + i), numero: i + 1, quando: v.quando, motorista: v.motorista, km: v.km, ok: v.ok, c: v.c, x: v.x, pdf: ''})).sort(desc);
+    return d.usos.filter(u => u.placa === o.placa).map(u => ({tipo: 'uso', quando: u.saida, motorista: u.motorista, titulo: u.destino,
+      detalhe: u.chegada ? `${hhmm(new Date(u.saida))}–${hhmm(new Date(u.chegada))} · ${u.kmSaida} → ${u.kmChegada} km (${u.kmChegada - u.kmSaida} km)` : `Saída ${hhmm(new Date(u.saida))} · ${u.kmSaida} km · em uso`})).sort(desc); },
+  pdfVistoria(){ throw new Error(DEMO_PDF); },
+  relatorioMensal(){ throw new Error(DEMO_PDF); }
+};
+const DEMO_PDF = 'No modo demonstração o PDF não é gerado. Ele funciona quando o config.js tem a URL do Google.';
+const DEMO_ITENS = [
+  {grupo: 'Níveis e fluidos', itens: ['Óleo do motor', 'Água do radiador', 'Água do limpador de para-brisa', 'Fluido de freio']},
+  {grupo: 'Pneus, luzes e segurança', itens: ['Pneus calibrados', 'Pneus sem desgaste / bolhas / cortes', 'Faróis e lanternas', 'Setas, luz de freio e ré', 'Buzina', 'Palhetas do limpador', 'Freios / freio de mão', 'Painel sem luz de alerta acesa']},
+  {grupo: 'Estética e limpeza', itens: ['Lataria sem amassados novos', 'Pintura sem riscos novos', 'Para-choques', 'Vidros e para-brisa (trincas)', 'Retrovisores', 'Limpeza externa', 'Limpeza interna', 'Bancos e estofados', 'Tapetes']}
+];
+const DEMO_FOTOS = ['Painel (km e luzes)', 'Frente', 'Traseira', 'Lateral esquerda', 'Lateral direita'];
+function demoSeed(){
+  const h = (dd, hh, mm) => { const d = new Date(); d.setDate(d.getDate() - dd); d.setHours(hh, mm, 0, 0); return d.toISOString(); };
+  return {
+    mot: [{nome: 'Vinícius'}, {nome: 'Carla Exemplo'}, {nome: 'Rafael Exemplo', pin: '1234'}],
+    vei: [{placa: 'IZK4B21', modelo: 'Fiat Strada (exemplo)'}, {placa: 'JBX7C09', modelo: 'VW Gol (exemplo)'}],
+    usos: [
+      {id: 'U1', placa: 'IZK4B21', saida: h(3, 7, 40), motorista: 'Carla Exemplo', destino: 'Cliente A – auditoria interna', kmSaida: 48210, chegada: h(3, 18, 5), kmChegada: 48496},
+      {id: 'U2', placa: 'IZK4B21', saida: h(1, 8, 10), motorista: 'Vinícius', destino: 'Cliente B – visita técnica', kmSaida: 48496, chegada: h(1, 17, 30), kmChegada: 48702},
+      {id: 'U3', placa: 'JBX7C09', saida: h(0, 7, 55), motorista: 'Rafael Exemplo', destino: 'Cliente C – treinamento BPF', kmSaida: 91380, chegada: null, kmChegada: null}
+    ],
+    abast: [{placa: 'IZK4B21', quando: h(1, 12, 20), motorista: 'Vinícius', posto: 'Posto exemplo – Camaquã', km: 48610, comb: 'Gasolina', litros: 38.4, valor: 239.62, cheio: 'S'}],
+    vist: [
+      {id: 'V1', placa: 'IZK4B21', quando: h(9, 7, 30), motorista: 'Carla Exemplo', km: 47980, ok: 19, c: 1, x: 1},
+      {id: 'V2', placa: 'JBX7C09', quando: h(2, 7, 45), motorista: 'Rafael Exemplo', km: 91200, ok: 21, c: 0, x: 0}
+    ],
+    avar: [{placa: 'IZK4B21', item: 'Pintura sem riscos novos', status: 'Aberta'}]
+  };
+}
+function demoEstado(d){
+  const e = {};
+  d.vei.forEach(v => e[v.placa] = {ultimoKm: 0, usoAberto: null, ultimaVistoria: null, ultimaVistoriaPor: '', avariasAbertas: 0});
+  const up = (p, k) => { if (e[p] && +k > e[p].ultimoKm) e[p].ultimoKm = +k; };
+  d.usos.forEach(u => { up(u.placa, u.kmSaida); up(u.placa, u.kmChegada); if (!u.chegada) e[u.placa].usoAberto = {id: u.id, motorista: u.motorista, destino: u.destino, saida: u.saida, kmSaida: u.kmSaida}; });
+  d.abast.forEach(a => up(a.placa, a.km));
+  d.vist.forEach(v => { up(v.placa, v.km); if (!e[v.placa].ultimaVistoria || v.quando > e[v.placa].ultimaVistoria){ e[v.placa].ultimaVistoria = v.quando; e[v.placa].ultimaVistoriaPor = v.motorista; } });
+  d.avar.forEach(a => { if (a.status !== 'Resolvida' && e[a.placa]) e[a.placa].avariasAbertas++; });
+  return e;
+}
+
+/* ===================== início ===================== */
+function prontoParaUsar(){
+  if (!S.init.veiculos.length){ $('#view').innerHTML = '<div class="note warn">Nenhum veículo cadastrado. Preencha a aba <b>Veículos</b> da planilha.</div>'; return false; }
+  if (S.user && !S.init.motoristas.some(m => m.nome === S.user.nome)){ S.user = null; LS.del('frota-user'); }
+  if (!S.init.veiculos.some(v => v.placa === S.placa)) S.placa = S.init.veiculos[0].placa;
+  return true;
+}
+(async function start(){
+  $('#view').innerHTML = '<div class="empty">Carregando…</div>';
+  const cache = MODO_API ? LS.get('frota-init', null) : null;
+  if (cache){ S.init = cache; if (prontoParaUsar()){ carregarRascunho(); render(); } }   // abre na hora, mesmo sem sinal
+  try {
+    const novo = await api('getInit');
+    S.init = novo;
+    if (MODO_API){                                  // reaplica o que ainda está na fila por cima dos dados do servidor
+      (await Fila.todos()).forEach(i => aplicarLocal(i.fn, i.dados));
+      guardarInit();
+    }
+    if (prontoParaUsar()){ if (!cache) carregarRascunho(); render(); }
+    if (MODO_API) sincronizar().then(r => { if (r.erros.length) toast(r.erros[0], true); if (r.enviados || r.erros.length) render(); });
+  } catch(e){
+    if (!cache) $('#view').innerHTML = `<div class="note bad">Não foi possível abrir o app: ${esc(e.message)} Conecte-se à internet na primeira vez que abrir.</div>`;
+    else barraFila();
+  }
+})();
+window.addEventListener('online', () => { if (MODO_API && S.init) sincronizar().then(r => { if (r.erros.length) toast(r.erros[0], true); if (r.enviados || r.erros.length) render(); }); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && MODO_API && S.init) sincronizar().then(r => { if (r.erros.length) toast(r.erros[0], true); if (r.enviados || r.erros.length) render(); }); });
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
