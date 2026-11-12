@@ -176,7 +176,7 @@ nav .dot{position:absolute;top:10px;right:calc(50% - 18px);width:9px;height:9px;
 @keyframes sp{to{transform:rotate(360deg)}}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 12px);z-index:21;background:var(--ink);color:var(--surface);padding:12px 16px;border-radius:12px;font-weight:600;font-size:15px;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
 .toast.bad{background:var(--bad);color:#fff}
-.subtabs{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.subtabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
 .subtabs button{border:0;background:none;border-radius:9px;min-height:42px;font-weight:600;font-size:15px;color:var(--muted);cursor:pointer}
 .subtabs button[aria-pressed=true]{background:var(--surface);color:var(--accent);box-shadow:var(--shadow)}
 .shots.sm{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
@@ -196,6 +196,14 @@ select.inp{appearance:auto;font-size:16px;background:var(--surface);min-height:5
 .sum div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
 .sum b{display:block;font-family:var(--f-display);font-weight:700;font-size:19px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sum span{font-size:12px;color:var(--muted)}
+.subtabs .cnt{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--bad);color:#fff;font-size:12px;font-weight:700}
+.av-desc{margin:0;font-size:15px}
+.av-fotos{display:flex;flex-wrap:wrap;gap:4px 14px}
+.av-ed{display:grid;gap:10px;background:var(--surface-2);border-radius:12px;padding:12px}
+.av-ed .acts{display:flex;gap:10px;align-items:center}
+.av-ed .acts .btn{min-height:44px;font-size:16px}
+.av-ed .acts .linkbtn{flex:none;padding-inline:6px}
+.av-obs{font-size:14px;background:var(--surface-2);border-radius:10px;padding:8px 10px}
 .sec{font-family:var(--f-display);font-weight:700;font-size:22px;margin:10px 0 -4px}
 #instalar{padding-top:14px}
 .inst{display:grid;grid-template-columns:48px 1fr;gap:12px;align-items:start;background:var(--accent-soft);border:1px solid var(--line);border-radius:var(--r);padding:14px}
@@ -359,7 +367,7 @@ async function comprimir(file, max = 1400, q = 0.72){
 const S = {
   init: null, user: LS.get('frota-user', null), placa: LS.get('frota-placa', null),
   view: 'viagem', d: {}, vist: {}, shots: {}, tried: false, pinFor: null,
-  sub: {vist: 'novo', abast: 'novo'}, rel: {mes: null, placa: null}, relOut: null, vistList: []
+  sub: {vist: 'novo', abast: 'novo'}, avFiltro: 'abertas', avList: [], avEdit: null, avDraft: {}, rel: {mes: null, placa: null}, relOut: null, vistList: []
 };
 const est = () => (S.init.estado[S.placa] || {});
 const veic = () => S.init.veiculos.find(v => v.placa === S.placa) || {};
@@ -382,7 +390,7 @@ function multiShot(key){
   const l = S.shots[key] || [], miss = S.tried && !l.length;
   return `<div class="shots sm">${l.map((u, i) => `<div class="thumb"><img src="${u}" alt="Foto ${i + 1} do problema"><button data-rmfoto="${esc(key)}" data-i="${i}" aria-label="Remover foto ${i + 1}">×</button></div>`).join('')}${l.length < 6 ? `<label class="shot${miss ? ' missing' : ''}"><input type="file" accept="image/*" capture="environment" data-multi="${esc(key)}" aria-label="${l.length ? 'Adicionar mais uma foto' : 'Foto do problema'}"><span class="cap">${l.length ? '<span class="plus">+</span><span>Mais fotos</span>' : camIcon + '<span>Foto do problema</span>'}</span></label>` : ''}</div>`;
 }
-const subtabs = (view, a, b) => `<div class="subtabs">${[a, b].map(([k, l]) => `<button data-sub="${view}" data-v="${k}" aria-pressed="${S.sub[view] === k}">${l}</button>`).join('')}</div>`;
+const subtabs = (view, ...itens) => `<div class="subtabs">${itens.map(([k, l]) => `<button data-sub="${view}" data-v="${k}" aria-pressed="${S.sub[view] === k}">${l}</button>`).join('')}</div>`;
 const n2 = n => String(n).padStart(2, '0');
 const nbr = (n, d) => (+n || 0).toLocaleString('pt-BR', {minimumFractionDigits: d, maximumFractionDigits: d});
 const fmtData = iso => { const d = new Date(iso); return d.toLocaleDateString('pt-BR') + ' · ' + hhmm(d); };
@@ -488,7 +496,42 @@ function progresso(){
   return `${f}/${t.length} itens · ${fg}/${S.init.fotosGerais.length} fotos`;
 }
 function vVist(){
-  return subtabs('vist', ['novo', 'Nova vistoria'], ['hist', 'Histórico']) + (S.sub.vist === 'hist' ? vVistHist() : vVistNova());
+  const n = est().avariasAbertas || 0;
+  return subtabs('vist', ['novo', 'Nova vistoria'], ['avar', 'Avarias' + (n ? `<span class="cnt">${n}</span>` : '')], ['hist', 'Histórico']) +
+    (S.sub.vist === 'hist' ? vVistHist() : S.sub.vist === 'avar' ? vAvarias() : vVistNova());
+}
+function vAvarias(){
+  const f = (k, l) => `<button class="chip" data-avf="${k}" aria-pressed="${S.avFiltro === k}">${l}</button>`;
+  return `<h1>Avarias · ${esc(nomeV(S.placa))}</h1>
+    <div class="chips">${f('abertas', 'Pendentes')}${f('todas', 'Todas')}</div>
+    <div class="card"><div id="listaAvar"><div class="empty">Carregando…</div></div></div>
+    <p class="lead">Avarias entram aqui quando um item da vistoria é marcado com X. Ao marcar como resolvida, a data é registrada sozinha.</p>`;
+}
+const SIT_CLS = {'Aberta': 'bad', 'Em andamento': 'warn', 'Resolvida': 'ok'};
+function recAvar(a){
+  const ed = S.avEdit === a.id, d = S.avDraft;
+  const sit = s => `<button class="chip" data-avsit="${s}" aria-pressed="${d.situacao === s}">${s}</button>`;
+  return `<div class="rec"><div class="rec-top"><span class="rec-t" style="font-size:18px">${esc(a.item)}</span><span class="pill ${SIT_CLS[a.situacao] || 'bad'}">${esc(a.situacao)}</span></div>
+    <div class="rec-d">${a.numVist ? 'Vistoria ' + n2(a.numVist) + ' · ' : ''}${fmtData(a.quando)} · ${esc(a.motorista)}</div>
+    <p class="av-desc">${esc(a.desc)}</p>
+    ${a.fotos.length ? `<div class="av-fotos">${a.fotos.map((u, i) => `<a class="linkbtn" href="${esc(u)}" target="_blank" rel="noopener">Ver foto ${i + 1}</a>`).join('')}</div>` : ''}
+    ${a.situacao === 'Resolvida' && a.resolvidoEm ? `<div class="rec-d" style="color:var(--ok);font-weight:600">Resolvida em ${fmtData(a.resolvidoEm)}${a.atualizadoPor ? ' · ' + esc(a.atualizadoPor) : ''}</div>` : ''}
+    ${a.obs && !ed ? `<div class="av-obs"><b>Observação:</b> ${esc(a.obs)}</div>` : ''}
+    ${a.atualizadoPor && a.situacao !== 'Resolvida' && !ed ? `<div class="rec-d">Atualizado por ${esc(a.atualizadoPor)}${a.atualizadoEm ? ' em ' + fmtData(a.atualizadoEm) : ''}</div>` : ''}
+    ${ed ? `<div class="av-ed"><span class="lbl">Situação</span><div class="chips">${sit('Aberta')}${sit('Em andamento')}${sit('Resolvida')}</div>
+        <div class="f"><label for="avobs-${esc(a.id)}">Observação</label><textarea id="avobs-${esc(a.id)}" data-avobs placeholder="Ex.: levado à oficina; peça encomendada; trocado em dd/mm">${esc(d.obs || '')}</textarea></div>
+        <div class="acts"><button class="btn" data-act="avsalvar">Salvar</button><button class="linkbtn" data-act="avcancelar">Cancelar</button></div></div>`
+      : `<button class="btn ghost" data-avedit="${esc(a.id)}">Atualizar situação</button>`}
+  </div>`;
+}
+function desenharAvar(){
+  const el = $('#listaAvar'); if (!el) return;
+  el.innerHTML = S.avList.length ? S.avList.map(recAvar).join('')
+    : `<div class="empty">${S.avFiltro === 'abertas' ? 'Nenhuma avaria pendente neste carro.' : 'Nenhuma avaria registrada neste carro.'}</div>`;
+}
+async function carregarAvar(){
+  try { S.avList = await api('getAvarias', {placa: S.placa, todas: S.avFiltro === 'todas'}); desenharAvar(); }
+  catch(e){ const el = $('#listaAvar'); if (el) el.innerHTML = `<div class="empty">Não foi possível carregar: ${esc(e.message)}</div>`; }
 }
 function vVistHist(){
   return `<h1>Vistorias · ${esc(nomeV(S.placa))}</h1><div id="pendVist"></div>
@@ -607,6 +650,7 @@ function render(){
   document.querySelectorAll('#nav button').forEach(b => b.setAttribute('aria-current', b.dataset.view === S.view ? 'page' : 'false'));
   if (S.view === 'sit') carregarHist();
   if (S.view === 'vist' && S.sub.vist === 'hist') carregarVist();
+  if (S.view === 'vist' && S.sub.vist === 'avar') carregarAvar();
   if (S.view === 'abast' && S.sub.abast === 'hist') carregarAbast();
 }
 function ir(view){ S.view = view; S.tried = false; render(); window.scrollTo(0, 0); }
@@ -648,6 +692,19 @@ document.addEventListener('click', async ev => {
   const t = ev.target.closest('button'); if (!t) return;
   if (t.dataset.view) return ir(t.dataset.view);
   if (t.dataset.go){ if (t.dataset.go === 'vist') S.sub.vist = 'novo'; return ir(t.dataset.go); }
+  if (t.dataset.avf){ S.avFiltro = t.dataset.avf; S.avEdit = null; render(); return; }
+  if (t.dataset.avedit){ const a = S.avList.find(x => x.id === t.dataset.avedit); S.avEdit = a.id; S.avDraft = {situacao: a.situacao, obs: a.obs}; desenharAvar(); return; }
+  if (t.dataset.avsit){ S.avDraft.situacao = t.dataset.avsit; t.parentNode.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c === t)); return; }
+  if (t.dataset.act === 'avcancelar'){ S.avEdit = null; desenharAvar(); return; }
+  if (t.dataset.act === 'avsalvar'){
+    t.disabled = true; t.textContent = 'Salvando…';
+    try {
+      const r = await api('atualizarAvaria', {auth: S.user, id: S.avEdit, situacao: S.avDraft.situacao, obs: S.avDraft.obs || ''});
+      S.init.estado = r.estado; guardarInit(); S.avEdit = null; render();
+      toast(S.avDraft.situacao === 'Resolvida' ? 'Avaria marcada como resolvida.' : 'Avaria atualizada.');
+    } catch(e){ t.disabled = false; t.textContent = 'Salvar'; toast(e.rede ? 'Sem internet. Tente de novo quando tiver sinal.' : e.message, true); }
+    return;
+  }
   if (t.dataset.sub){ S.sub[t.dataset.sub] = t.dataset.v; S.tried = false; render(); window.scrollTo(0, 0); return; }
   if (t.dataset.rmfoto){
     const key = t.dataset.rmfoto, l = (S.shots[key] || []).slice(); l.splice(+t.dataset.i, 1); S.shots[key] = l;
@@ -745,6 +802,7 @@ document.addEventListener('input', ev => {
     if (el.dataset.f === 'kmChegada'){ const r = int(el.value) - est().usoAberto.kmSaida; $('#rodados').textContent = isFinite(r) && r >= 0 ? 'Rodados nesta viagem: ' + km(r) : 'Digite o km que aparece no painel.'; }
     if (el.dataset.f === 'litros' || el.dataset.f === 'valor'){ const l = dec(S.d.litros), v = dec(S.d.valor); $('#porLitro').textContent = l > 0 && v > 0 ? brl(v / l) + ' por litro' : ''; }
   }
+  if (el.dataset.avobs !== undefined){ S.avDraft.obs = el.value; return; }
   if (el.dataset.obs !== undefined){ const it = el.dataset.obs; S.vist[it] = Object.assign({}, S.vist[it], {obs: el.value}); }
   salvarRascunho();
 });
@@ -784,11 +842,11 @@ async function entrar(nome, pin){
 const Demo = {
   _mem: null,
   db(){
-    let d = LS.get('frota-demo-v2', null) || this._mem;
+    let d = LS.get('frota-demo-v3', null) || this._mem;
     if (!d){ d = demoSeed(); this.save(d); }
     return d;
   },
-  save(d){ this._mem = d; LS.set('frota-demo-v2', d); },
+  save(d){ this._mem = d; LS.set('frota-demo-v3', d); },
   getInit(){ const d = this.db(); return {demo: true, motoristas: d.mot.map(m => ({nome: m.nome, temPin: !!m.pin})), veiculos: d.vei, itens: DEMO_ITENS, fotosGerais: DEMO_FOTOS, diasVistoria: 7, estado: demoEstado(d)}; },
   auth(a){ const m = this.db().mot.find(x => x.nome === (a && a.nome)); if (!m) throw new Error('Motorista não cadastrado.'); if (m.pin && String(a.pin) !== m.pin) throw new Error('PIN incorreto. No exemplo, o PIN é 1234.'); return m.nome; },
   login(o){ return {ok: true, nome: this.auth(o)}; },
@@ -805,7 +863,7 @@ const Demo = {
   salvarVistoria(o){ const d = this.db(), m = this.auth(o.auth), now = new Date().toISOString();
     const vs = Object.values(o.itens), x = Object.entries(o.itens).filter(e => e[1].s === 'X');
     d.vist.push({id: o.id, placa: o.placa, quando: now, motorista: m, km: o.km, ok: vs.filter(v => v.s === '✓').length, c: vs.filter(v => v.s === 'C').length, x: x.length});
-    x.forEach(e => d.avar.push({placa: o.placa, item: e[0], status: 'Aberta'}));
+    x.forEach(e => d.avar.push({id: 'A' + Date.now() + e[0].length, idV: o.id, placa: o.placa, item: e[0], desc: e[1].obs, quando: now, motorista: m, status: 'Aberta', obs: ''}));
     this.save(d); return {ok: true, quando: now, estado: demoEstado(d)}; },
   getHistorico(o){ const d = this.db(), t = o.tipo || 'uso', desc = (a, b) => b.quando.localeCompare(a.quando);
     if (t === 'abast') return d.abast.filter(a => a.placa === o.placa).map(a => ({quando: a.quando, motorista: a.motorista, posto: a.posto, km: a.km, comb: a.comb, litros: a.litros, valor: a.valor, precoL: a.valor / a.litros, cheio: a.cheio})).sort(desc);
@@ -813,6 +871,15 @@ const Demo = {
       .map((v, i) => ({id: v.id || ('V' + i), numero: i + 1, quando: v.quando, motorista: v.motorista, km: v.km, ok: v.ok, c: v.c, x: v.x, pdf: ''})).sort(desc);
     return d.usos.filter(u => u.placa === o.placa).map(u => ({tipo: 'uso', quando: u.saida, motorista: u.motorista, titulo: u.destino,
       detalhe: u.chegada ? `${hhmm(new Date(u.saida))}–${hhmm(new Date(u.chegada))} · ${u.kmSaida} → ${u.kmChegada} km (${u.kmChegada - u.kmSaida} km)` : `Saída ${hhmm(new Date(u.saida))} · ${u.kmSaida} km · em uso`})).sort(desc); },
+  getAvarias(o){ const d = this.db(), nums = {};
+    d.vist.filter(v => v.placa === o.placa).sort((a, b) => a.quando.localeCompare(b.quando)).forEach((v, i) => nums[v.id] = i + 1);
+    return d.avar.filter(a => a.placa === o.placa && (o.todas || a.status !== 'Resolvida')).map(a => ({id: a.id, numVist: nums[a.idV] || null, quando: a.quando, motorista: a.motorista,
+      item: a.item, desc: a.desc || '', fotos: [], situacao: a.status, resolvidoEm: a.resolvidoEm || null, obs: a.obs || '', atualizadoPor: a.por || '', atualizadoEm: a.em || null}))
+      .sort((a, b) => (b.quando || '').localeCompare(a.quando || '')); },
+  atualizarAvaria(o){ const d = this.db(), m = this.auth(o.auth), a = d.avar.find(x => x.id === o.id), now = new Date().toISOString();
+    if (!a) throw new Error('Avaria não encontrada.');
+    if (o.situacao === 'Resolvida'){ if (!a.resolvidoEm) a.resolvidoEm = now; } else a.resolvidoEm = null;
+    a.status = o.situacao; a.obs = o.obs; a.por = m; a.em = now; this.save(d); return {ok: true, estado: demoEstado(d)}; },
   pdfVistoria(){ throw new Error(DEMO_PDF); },
   relatorioMensal(){ throw new Error(DEMO_PDF); }
 };
@@ -838,7 +905,7 @@ function demoSeed(){
       {id: 'V1', placa: 'IZK4B21', quando: h(9, 7, 30), motorista: 'Carla Exemplo', km: 47980, ok: 19, c: 1, x: 1},
       {id: 'V2', placa: 'JBX7C09', quando: h(2, 7, 45), motorista: 'Rafael Exemplo', km: 91200, ok: 21, c: 0, x: 0}
     ],
-    avar: [{placa: 'IZK4B21', item: 'Pintura sem riscos novos', status: 'Aberta'}]
+    avar: [{id: 'A1', idV: 'V1', placa: 'IZK4B21', item: 'Pintura sem riscos novos', desc: 'Risco de uns 10 cm na porta traseira esquerda', quando: h(9, 7, 30), motorista: 'Carla Exemplo', status: 'Aberta', obs: ''}]
   };
 }
 function demoEstado(d){
