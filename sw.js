@@ -1,6 +1,6 @@
 // Service worker do Frota Hauke: guarda o app no celular para abrir sem internet.
 // Ao publicar uma versão nova, troque o número abaixo.
-const VERSAO = 'frota-v4';
+const VERSAO = 'frota-v6';
 const ARQUIVOS = ['./', 'index.html', 'config.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 

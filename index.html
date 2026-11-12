@@ -352,6 +352,7 @@ const S = {
 };
 const est = () => (S.init.estado[S.placa] || {});
 const veic = () => S.init.veiculos.find(v => v.placa === S.placa) || {};
+const nomeV = p => { const v = S.init.veiculos.find(x => x.placa === p); return (v && v.modelo) || p; };
 const todosItens = () => S.init.itens.flatMap(g => g.itens);
 const vistoriaVencida = e => !e.ultimaVistoria || dias(e.ultimaVistoria) >= (S.init.diasVistoria || 7);
 function limparRascunho(){ S.d = {}; S.vist = {}; S.shots = {}; S.tried = false; }
@@ -438,7 +439,7 @@ function vAbast(){
   return subtabs('abast', ['novo', 'Novo abastecimento'], ['hist', 'Histórico']) + (S.sub.abast === 'hist' ? vAbastHist() : vAbastNovo());
 }
 function vAbastHist(){
-  return `<h1>Abastecimentos · ${esc(S.placa)}</h1><div id="sumAbast"></div>
+  return `<h1>Abastecimentos · ${esc(nomeV(S.placa))}</h1><div id="sumAbast"></div>
     <div class="card"><div class="hist" id="histAbast"><div class="empty">Carregando…</div></div></div>`;
 }
 function vAbastNovo(){
@@ -449,7 +450,7 @@ function vAbastNovo(){
       <div class="f"><label for="posto">Posto</label><input type="text" id="posto" data-f="posto" value="${val('posto')}" placeholder="Nome e cidade"></div>
       <div class="f"><label for="kmAbast">Km no painel</label>
         <div class="suffix"><input type="text" id="kmAbast" data-f="kmAbast" inputmode="numeric" class="big" value="${S.d.kmAbast ?? (est().ultimoKm || '')}"><span>km</span></div></div>
-      <div class="f"><span class="lbl">Combustível</span>${chips('comb', [['Gasolina','Gasolina'],['Etanol','Etanol'],['Diesel S10','Diesel S10'],['GNV','GNV']])}</div>
+      <div class="f"><span class="lbl">Combustível</span>${chips('comb', [['Gasolina','Gasolina'],['Etanol','Etanol']])}</div>
       <div class="row2">
         <div class="f"><label for="litros">Litros</label><input type="text" id="litros" data-f="litros" inputmode="decimal" value="${val('litros')}" placeholder="0,00"></div>
         <div class="f"><label for="valor">Valor total (R$)</label><input type="text" id="valor" data-f="valor" inputmode="decimal" value="${val('valor')}" placeholder="0,00"></div>
@@ -479,7 +480,7 @@ function vVist(){
   return subtabs('vist', ['novo', 'Nova vistoria'], ['hist', 'Histórico']) + (S.sub.vist === 'hist' ? vVistHist() : vVistNova());
 }
 function vVistHist(){
-  return `<h1>Vistorias · ${esc(S.placa)}</h1><div id="pendVist"></div>
+  return `<h1>Vistorias · ${esc(nomeV(S.placa))}</h1><div id="pendVist"></div>
     <div class="card"><div id="histVist"><div class="empty">Carregando…</div></div></div>
     <p class="lead">Cada vistoria gera um PDF com os itens marcados, as observações e as fotos.</p>`;
 }
@@ -511,7 +512,7 @@ async function carregarAbast(){
     el.innerHTML = l.length ? l.map(a => `<div class="hi"><div class="ic">${histIcon.abast}</div><div>
       <div class="t">${nbr(a.litros, 2)} L ${esc(a.comb)} · ${brl(+a.valor)}</div>
       <div class="d">${quando(a.quando)} · ${esc(a.motorista)}</div>
-      <div class="d">${esc(a.posto || 'posto não informado')} · ${km(+a.km)} · ${brl(+a.precoL)}/L${a.cheio === 'S' ? ' · tanque cheio' : ''}</div></div></div>`).join('')
+      <div class="d">${esc(a.posto || 'posto não informado')} · ${km(+a.km)} · ${brl(+a.precoL)}/L${a.cheio === 'S' ? ' · tanque cheio' : ''}</div>${a.nota ? `<a class="linkbtn" href="${esc(a.nota)}" target="_blank" rel="noopener">Ver nota fiscal</a>` : ''}</div></div>`).join('')
       : '<div class="empty">Nenhum abastecimento registrado para este carro.</div>';
   } catch(e){ const el = $('#histAbast'); if (el) el.innerHTML = `<div class="empty">Não foi possível carregar: ${esc(e.message)}</div>`; }
 }
@@ -540,7 +541,7 @@ function vSit(){
     p.push(e.ultimaVistoria ? `<span class="pill ${venc ? 'bad' : 'ok'}">Vistoria ${venc ? 'vencida' : 'em dia'} · há ${dias(e.ultimaVistoria)} d</span>` : '<span class="pill bad">Sem vistoria</span>');
     if (e.usoAberto) p.push(`<span class="pill info">Em uso · ${esc(e.usoAberto.motorista.split(' ')[0])}</span>`);
     if (e.avariasAbertas) p.push(`<span class="pill warn">${e.avariasAbertas} avaria${e.avariasAbertas > 1 ? 's' : ''} em aberto</span>`);
-    return `<div class="card veh">${plate(v.placa, true)}<div><div class="km">${km(e.ultimoKm)}</div><div class="carro">${esc(v.modelo)}</div></div><div class="pills">${p.join('')}</div></div>`;
+    return `<div class="card veh">${plate(v.placa, true)}<div style="min-width:0"><div class="km">${esc(nomeV(v.placa))}</div><div class="carro">${km(e.ultimoKm)}</div></div><div class="pills">${p.join('')}</div></div>`;
   }).join('');
   if (!S.rel.mes) S.rel.mes = mesAtual();
   if (S.rel.placa == null) S.rel.placa = S.placa;
@@ -551,11 +552,11 @@ function vSit(){
     <div class="sec">Gerar relatório mensal</div>
     <div class="card"><div class="row2" style="grid-template-columns:3fr 2fr">
         <div class="f"><label for="relMes">Mês</label><select id="relMes" class="inp">${meses.join('')}</select></div>
-        <div class="f"><label for="relPlaca">Veículo</label><select id="relPlaca" class="inp">${S.init.veiculos.map(v => `<option value="${esc(v.placa)}"${v.placa === S.rel.placa ? ' selected' : ''}>${esc(v.placa)}</option>`).join('')}<option value=""${S.rel.placa === '' ? ' selected' : ''}>Todos</option></select></div></div>
+        <div class="f"><label for="relPlaca">Veículo</label><select id="relPlaca" class="inp">${S.init.veiculos.map(v => `<option value="${esc(v.placa)}"${v.placa === S.rel.placa ? ' selected' : ''}>${esc(nomeV(v.placa))}</option>`).join('')}<option value=""${S.rel.placa === '' ? ' selected' : ''}>Todos</option></select></div></div>
       <p class="lead">PDF com resumo do mês (km rodados, empresas visitadas, problemas relatados) e os históricos de viagens e de abastecimentos.</p>
       <button class="btn" data-act="relatorio">Gerar relatório</button>
       <div id="relOut">${S.relOut ? relLink(S.relOut) : ''}</div></div>
-    <div class="sec">Histórico de viagens · ${esc(S.placa)}</div>
+    <div class="sec">Histórico de viagens · ${esc(nomeV(S.placa))}</div>
     <div class="card"><div class="hist" id="hist"><div class="empty">Carregando…</div></div></div>`;
 }
 const histIcon = {
@@ -586,8 +587,8 @@ function render(){
   }
   const v = veic();
   $('#hd').innerHTML = `<div class="platepick">${plate(S.placa)}
-      <select id="selPlaca" aria-label="Trocar de veículo">${S.init.veiculos.map(x => `<option value="${esc(x.placa)}"${x.placa === S.placa ? ' selected' : ''}>${esc(x.placa)} · ${esc(x.modelo)}</option>`).join('')}</select></div>
-    <div style="min-width:0"><div class="carro" style="margin:0">${esc(v.modelo || '')}</div><div class="carro">Toque na placa para trocar</div></div>
+      <select id="selPlaca" aria-label="Trocar de veículo">${S.init.veiculos.map(x => `<option value="${esc(x.placa)}"${x.placa === S.placa ? ' selected' : ''}>${esc(nomeV(x.placa))} · ${esc(x.placa)}</option>`).join('')}</select></div>
+    <div style="min-width:0"><div class="carro" style="margin:0;font-weight:700;color:var(--ink);font-size:15px">${esc(v.modelo || '')}</div><div class="carro">Toque na placa para trocar</div></div>
     <span class="sp"></span><button class="who" data-act="sair" title="Trocar motorista">${esc(S.user.nome.split(' ')[0])} ▾</button>`;
   $('#nav').hidden = false;
   $('#vdot').hidden = !vistoriaVencida(est());
