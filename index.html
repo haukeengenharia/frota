@@ -197,6 +197,16 @@ select.inp{appearance:auto;font-size:16px;background:var(--surface);min-height:5
 .sum b{display:block;font-family:var(--f-display);font-weight:700;font-size:19px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sum span{font-size:12px;color:var(--muted)}
 .sec{font-family:var(--f-display);font-weight:700;font-size:22px;margin:10px 0 -4px}
+#instalar{padding-top:14px}
+.inst{display:grid;grid-template-columns:48px 1fr;gap:12px;align-items:start;background:var(--accent-soft);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.inst img{width:48px;height:48px;border-radius:12px}
+.inst b{display:block;font-size:16px}
+.inst p{margin:4px 0 0;font-size:14px;color:var(--muted)}
+.inst p b,.inst li b{display:inline;font-size:inherit;color:var(--ink)}
+.inst ol{margin:6px 0 0;padding-left:18px;font-size:14px;display:grid;gap:3px}
+.inst-acts{grid-column:1/-1;display:flex;gap:10px}
+.inst-acts .btn{min-height:46px;font-size:17px}
+.inst-acts .linkbtn{flex:none;padding-inline:8px}
 @media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
 html{padding-top:env(safe-area-inset-top,0px)}
 body{margin:0}
@@ -213,6 +223,7 @@ img{max-width:100%}
   <div id="syncBar" class="sync" hidden><span id="syncTxt"></span><button data-act="sync">Enviar agora</button></div>
   <div class="wrap hd" id="hd"></div>
 </header>
+<div class="wrap" id="instalar" hidden></div>
 <main class="wrap" id="view"></main>
 <nav id="nav" hidden><div class="in">
   <button data-view="viagem"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h-1a1 1 0 0 1-1-1v-4l2-5h12l2 5v4a1 1 0 0 1-1 1h-1"/><circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/><path d="M9.5 17h5M3 12h18"/></svg>Viagem</button>
@@ -668,6 +679,12 @@ document.addEventListener('click', async ev => {
     const y = window.scrollY; render(); window.scrollTo(0, y); return salvarRascunho();
   }
   const a = t.dataset.act;
+  if (a === 'instalar' && promptInstalar){
+    promptInstalar.prompt();
+    try { const r = await promptInstalar.userChoice; if (r && r.outcome === 'accepted') $('#instalar').hidden = true; } catch(e){}
+    promptInstalar = null; return;
+  }
+  if (a === 'instalar-depois'){ LS.set('frota-instalar-depois', Date.now() + 3 * 864e5); $('#instalar').hidden = true; return; }
   if (a === 'voltar'){ S.pinFor = null; return render(); }
   if (a === 'pin') return entrar(S.pinFor, $('#pin').value);
   if (a === 'relatorio'){
@@ -842,6 +859,33 @@ function prontoParaUsar(){
   if (!S.init.veiculos.some(v => v.placa === S.placa)) S.placa = S.init.veiculos[0].placa;
   return true;
 }
+/* ===================== aviso de instalação ===================== */
+let promptInstalar = null;
+const instalado = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const UA = navigator.userAgent;
+const ehIOS = /iphone|ipad|ipod/i.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const ehAndroid = /android/i.test(UA);
+const noApp = /FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)/i.test(UA);        // navegador embutido (WhatsApp, Instagram...)
+const iosSafari = ehIOS && /safari/i.test(UA) && !/crios|fxios|edgios/i.test(UA) && !noApp;
+const iconeShare = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4M5 12v8h14v-8"/></svg>';
+function mostrarInstalar(){
+  const el = $('#instalar');
+  if (!el || instalado() || Date.now() < LS.get('frota-instalar-depois', 0)){ if (el) el.hidden = true; return; }
+  const depois = '<button class="linkbtn" data-act="instalar-depois">Agora não</button>';
+  const topo = (t, p) => `<img src="icons/icon-192.png" alt=""><div><b>${t}</b>${p}</div>`;
+  let h = '';
+  if (promptInstalar) h = topo('Instale o Frota Hauke', '<p>Fica com ícone na tela inicial, abre em tela cheia e funciona sem sinal.</p>') +
+    `<div class="inst-acts"><button class="btn" data-act="instalar">Instalar app</button>${depois}</div>`;
+  else if (iosSafari) h = topo('Instale no iPhone', `<ol><li>Toque em <b style="display:inline">Compartilhar</b> ${iconeShare} na barra do Safari</li><li>Escolha <b style="display:inline">Adicionar à Tela de Início</b></li><li>Abra sempre pelo ícone azul</li></ol>`) + `<div class="inst-acts">${depois}</div>`;
+  else if (ehIOS || (ehAndroid && noApp)) h = topo('Abra no navegador para instalar', `<p>Este link foi aberto dentro de outro aplicativo. Toque nos três pontinhos e escolha <b style="display:inline">Abrir no ${ehIOS ? 'Safari' : 'Chrome'}</b>.</p>`) + `<div class="inst-acts">${depois}</div>`;
+  else if (ehAndroid) h = topo('Instale o Frota Hauke', '<p>No Chrome, toque em <b style="display:inline">⋮</b> (canto superior direito) e escolha <b style="display:inline">Instalar app</b> ou <b style="display:inline">Adicionar à tela inicial</b>.</p>') + `<div class="inst-acts">${depois}</div>`;
+  if (!h){ el.hidden = true; return; }
+  el.innerHTML = `<div class="inst">${h}</div>`; el.hidden = false;
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); promptInstalar = e; mostrarInstalar(); });
+window.addEventListener('appinstalled', () => { promptInstalar = null; $('#instalar').hidden = true; toast('App instalado. Abra pelo ícone na tela inicial.'); });
+setTimeout(mostrarInstalar, 2500);   // dá tempo do Chrome oferecer o botão de instalar
+
 (async function start(){
   $('#view').innerHTML = '<div class="empty">Carregando…</div>';
   const cache = MODO_API ? LS.get('frota-init', null) : null;
