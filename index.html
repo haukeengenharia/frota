@@ -55,6 +55,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 .brand small{display:block;font-family:var(--f-body);font-weight:500;font-size:12px;letter-spacing:.04em;color:var(--muted);text-transform:none;margin-top:3px}
 .hd .sp{flex:1}
 .who{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;cursor:pointer;max-width:42vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.teste{background:#c2410c;color:#fff;font-size:13px;font-weight:700;letter-spacing:.04em;padding-block:6px;text-align:center}
 .demo{background:var(--warn-soft);color:var(--warn);font-size:13px;font-weight:600;padding-block:6px;text-align:center}
 
 /* placa Mercosul */
@@ -227,6 +228,7 @@ img{max-width:100%}
 <body>
 
 <header>
+  <div id="testeBar" class="teste" hidden>VERSÃO DE TESTE · registros não são oficiais</div>
   <div id="demoBar" class="demo" hidden>Modo demonstração · dados de exemplo, salvos só neste aparelho</div>
   <div id="syncBar" class="sync" hidden><span id="syncTxt"></span><button data-act="sync">Enviar agora</button></div>
   <div class="wrap hd" id="hd"></div>
@@ -245,6 +247,8 @@ img{max-width:100%}
 <script>
 /* ===================== conexão com o servidor ===================== */
 const API = String(window.FROTA_API || '').trim();
+const TESTE = !!window.FROTA_TESTE;
+if (TESTE){ document.title = 'Frota TESTE'; document.getElementById('testeBar').hidden = false; }
 const MODO_API = /^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(API);
 async function chamar(acao, dados){
   let r;
@@ -972,7 +976,25 @@ setTimeout(mostrarInstalar, 2500);   // dá tempo do Chrome oferecer o botão de
   }
 })();
 window.addEventListener('online', () => { if (MODO_API && S.init) sincronizar().then(r => { if (r.erros.length) toast(r.erros[0], true); if (r.enviados || r.erros.length) render(); }); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && MODO_API && S.init) sincronizar().then(r => { if (r.erros.length) toast(r.erros[0], true); if (r.enviados || r.erros.length) render(); }); });
+/* atualização automática: ao voltar para o app e a cada 1 minuto com ele aberto */
+let atualizando = false, ultimaAtualizacao = Date.now();
+async function atualizarEstado(){
+  if (!MODO_API || !S.init || atualizando || document.hidden || !$('#ovl').hidden) return;
+  atualizando = true;
+  try {
+    const r = await sincronizar(); if (r.erros.length) toast(r.erros[0], true);
+    const novo = await api('getInit'), antes = JSON.stringify([S.init.estado, S.init.motoristas, S.init.veiculos]);
+    S.init = novo; (await Fila.todos()).forEach(i => aplicarLocal(i.fn, i.dados)); guardarInit();   // reaplica o que ainda não subiu
+    ultimaAtualizacao = Date.now();
+    const mudou = antes !== JSON.stringify([S.init.estado, S.init.motoristas, S.init.veiculos]);
+    const digitando = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (mudou && !digitando && prontoParaUsar()){ const y = window.scrollY; render(); window.scrollTo(0, y); }
+  } catch(e){ /* sem internet: tenta de novo na próxima vez */ }
+  finally { atualizando = false; }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) atualizarEstado(); });
+window.addEventListener('focus', () => { if (Date.now() - ultimaAtualizacao > 15000) atualizarEstado(); });
+setInterval(atualizarEstado, 60000);
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
